@@ -118,7 +118,7 @@ data/
 
 학습된 모델 체크포인트는 Google Drive에서 다운로드할 수 있습니다.
 
-**[Download Checkpoints (Google Drive)](https://drive.google.com/drive/folders/1B1rpECMoyqA8a412nqFwMZnmu2QKgOQb)**
+**[Download Checkpoints (Google Drive)](https://drive.google.com/drive/folders/1S9Nhwa-_0JMRGe5U5p7x7SmCptr2GAmy)**
 
 다운로드 후 아래와 같이 배치:
 ```
