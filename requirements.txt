@@ -1,0 +1,14 @@
+lightgbm==4.6.0
+xgboost==3.2.0
+catboost==1.2.10
+pytorch-tabnet==4.1.0
+scikit-learn==1.8.0
+pandas==3.0.1
+numpy==2.4.2
+torch==2.10.0+cu128
+
+# 개발 환경
+# OS: Ubuntu (WSL2) / Linux 6.6.87.2-microsoft-standard-WSL2
+# GPU: NVIDIA RTX 5060 Ti 16GB / CUDA 12.8
+# Python: 3.13.12
+# 최종 성적: Public LB 9.802014278 / Private 10.01488 / 18등

@@ -1,0 +1,10 @@
+checkpoints_v8/
+checkpoints_v8_transformer/
+checkpoints_v8_tabnet/
+checkpoints_strict/
+data/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+logs/
+experiments/
