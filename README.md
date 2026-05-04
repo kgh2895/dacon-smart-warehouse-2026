@@ -1,12 +1,10 @@
 # 스마트 창고 출고 지연 예측 AI 경진대회
 
-**DACON** | 최종 순위: **18등** | Public LB: **9.8020** | Private: **10.0149**
+> **최종 순위 18등 | Public LB 9.8020 | Private 10.0149**
+>
+> [대회 링크](https://dacon.io/competitions/official/236696/overview/description)
 
----
-
-## 문제 정의
-
-스마트 물류창고 운영 스냅샷(15분 단위, 시나리오당 25 타임스텝)을 입력으로, 향후 30분 평균 출고 지연 시간(분)을 예측하는 회귀 문제.
+스마트 물류창고 운영 스냅샷(15분 단위, 시나리오당 25 타임스텝)을 입력으로, 향후 30분 평균 출고 지연 시간(분)을 예측하는 회귀 문제입니다.
 
 - **데이터**: train 250,000행 × 94컬럼 / test 50,000행 / 보조 layout_info 300행
 - **타깃**: `avg_delay_minutes_next_30m`
@@ -14,7 +12,7 @@
 
 ---
 
-## 솔루션 요약
+## Solution Overview
 
 ### 1. 피처 엔지니어링 (798개)
 
@@ -30,7 +28,7 @@
 - `battery_pressure_pb`: 저배터리 비율의 지수 함수 가중치
 - `demand_mass_per_robot`: 주문 유입량 / 활성 로봇 수
 - `congestion_x_lowbat`: 혼잡도 × 저배터리 비율
-- **시나리오 집계 피처**: 단독으로 GBDT blend CV 8.5426 → 8.4806 개선
+- Onset 피처: 충전/큐가 처음 발생하는 타임스텝 위치
 
 ### 2. 모델 구성 (9종)
 
@@ -69,38 +67,93 @@ meta_params = {
     "learning_rate": 0.05, "min_child_samples": 100,
     "subsample": 0.8, "colsample_bytree": 1.0,
 }
+# GroupKFold(5), early_stopping=50, num_boost_round=3000
 ```
 
 ---
 
-## 제출 이력
+## Key Findings
 
-| # | Public LB | CV | 핵심 |
-|---|----------|----|------|
+| 발견 | 상세 |
+|------|------|
+| **시나리오 집계 피처** | 단독으로 GBDT blend CV 8.5426 → 8.4806 (+0.0620). 가장 큰 단독 개선 |
+| **예측 불확실성 메타 피처** | std/range 추가로 LB 9.821 → 9.802. 메타러너가 모델 불일치 상황을 더 잘 처리 |
+| **LGB 스태킹 > blend > Ridge** | 메타러너 복잡도와 성능이 비례하지 않음 (num_leaves=15 최적) |
+| **1D CNN 부적합** | 25 timestep이 너무 짧아 로컬 패턴 추출 불가 (CV ≥ 10.21) |
+| **모델 수 주의** | 9→11개 증가 시 오히려 CV 악화 (과적합) |
+| **CV-LB 일관성** | GroupKFold CV가 LB 방향과 잘 일치 → CV 기반 의사결정 신뢰 가능 |
+
+---
+
+## Experiment Log
+
+| # | Public LB | CV | 핵심 변경 |
+|---|----------|----|----------|
 | 1 | 9.9850 | 8.5372 | Transformer v4 블렌드 기준선 |
 | 2 | 9.8347 | 8.4230 | LGB 스태킹 8모델 도입 |
-| 3 | 9.8215 | 8.4050 | v8b Transformer(798피처) 반영 |
+| 3 | 9.8215 | 8.4050 | v8b Transformer (798 피처) 반영 |
 | 4 | 9.8254 | 8.3961 | MLP 추가 (9모델) |
 | **5** | **9.8020** | **8.3942** | **예측 std/range 메타 피처** |
 
 ---
 
-## 재현 방법
+## Reproduction
+
+### Data
+
+이미지 데이터는 DACON 대회 페이지에서 다운로드할 수 있습니다.
+
+**[DACON 스마트 창고 출고 지연 예측 AI 경진대회](https://dacon.io/competitions/official/236696/overview/description)**
+
+다운로드 후 아래와 같이 배치:
+```
+data/
+├── train.csv
+├── test.csv
+├── layout_info.csv
+└── sample_submission.csv
+```
+
+### Checkpoints
+
+학습된 모델 체크포인트는 Google Drive에서 다운로드할 수 있습니다.
+
+**[Download Checkpoints (Google Drive)](https://drive.google.com/drive/folders/1B1rpECMoyqA8a412nqFwMZnmu2QKgOQb)**
+
+다운로드 후 아래와 같이 배치:
+```
+checkpoints_v8/            # GBDT 5종 (lgb_mae_log, lgb_huber_log, cat_mae_log, lgb_mae_raw, xgb_mae_raw)
+checkpoints_v8_transformer/ # Transformer v4 + MLP
+checkpoints_v8_tabnet/     # TabNet (v8, 714 피처)
+checkpoints_strict/        # TabNet (strict2, 198 피처)
+```
+
+### Score 재현 (체크포인트 기반)
 
 ```bash
 pip install -r requirements.txt
 
 # data/ 폴더에 배치: train.csv, test.csv, layout_info.csv, sample_submission.csv
 
-python run_experiments_v8.py --ckpt_prefix v8b   # GBDT 학습
+python run_stacking.py --tag v9
+# → submissions/v8_stacking_v9_submission.csv
+```
+
+### Full Retraining
+
+```bash
+pip install -r requirements.txt
+
+python run_experiments_v8.py --ckpt_prefix v8b   # GBDT 5종 학습
 python run_v8_transformer.py --v4                 # Transformer v4
 python run_v8_mlp.py                              # MLP
+python run_v8_tabnet.py                           # TabNet (선택)
 python run_stacking.py --tag v9                   # 스태킹 → submissions/
 ```
 
 ---
 
-## 파일 구조
+## Project Structure
 
 ```
 .
@@ -115,22 +168,26 @@ python run_stacking.py --tag v9                   # 스태킹 → submissions/
 ├── run_experiments_strict.py  # strict2_tabnet 참조용
 ├── solution.md                # 상세 솔루션 문서
 ├── submission_package.ipynb   # 제출용 노트북
-└── v8_stacking_v9_unc_submission.csv  # 최고 LB 제출 파일
+├── v8_stacking_v9_unc_submission.csv  # 최고 LB 제출 파일
+├── checkpoints_v8/            # GBDT 체크포인트 (Google Drive)
+├── checkpoints_v8_transformer/ # Transformer/MLP 체크포인트 (Google Drive)
+├── checkpoints_v8_tabnet/     # TabNet 체크포인트 (Google Drive)
+├── checkpoints_strict/        # strict2 TabNet 체크포인트 (Google Drive)
+└── data/                      # 데이터 CSV (not included)
 ```
-
-> `data/`, `checkpoints_*/` 폴더는 .gitignore 처리
 
 ---
 
-## 개발 환경
+## Environment
 
-| 항목 | 값 |
-|------|-----|
-| OS | Ubuntu (WSL2) |
+| | |
+|---|---|
 | GPU | NVIDIA RTX 5060 Ti 16GB |
+| OS | Ubuntu (WSL2) |
 | CUDA | 12.8 |
 | Python | 3.13.12 |
 | PyTorch | 2.10.0+cu128 |
 | LightGBM | 4.6.0 |
 | XGBoost | 3.2.0 |
 | CatBoost | 1.2.10 |
+| pytorch-tabnet | 4.1.0 |
